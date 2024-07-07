@@ -2,14 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "Connect-6-demo-0.0.1-SNAPSHOT.jar",
-      "use": "@vercel/static-build"
+      "src": "pom.xml",
+      "use": "@vercel/static-build",
+      "config": {
+        "buildCommand": "mvn clean package",
+        "distDir": "target"
+      }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "Connect-6-demo-0.0.1-SNAPSHOT.jar"
+      "dest": "target/Connect-6-demo-0.0.1-SNAPSHOT.jar"
     }
   ]
 }
