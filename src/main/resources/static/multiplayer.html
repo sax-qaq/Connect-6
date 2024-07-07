@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect-6</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+    }
+    canvas {
+      background-color: #d9b38c;
+      border: 1px solid #000000;
+    }
+    .controls {
+      margin-bottom: 20px;
+    }
+    .new-game {
+      display: none;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        height: auto;
+        padding: 20px;
+      }
+      canvas {
+        width: 100%;
+        height: auto;
+      }
+    }
+
+    @media (max-width: 768px) {
+      canvas {
+        width: 90%;
+        height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="controls">
+  <button onclick="resetGame()">重置游戏</button>
+  <select id="playerSelect">
+    <option value="1">玩家1 - 黑棋</option>
+    <option value="2">玩家2 - 白棋</option>
+  </select>
+  <button onclick="choosePlayer()">选择颜色</button>
+</div>
+<div id="status">请选择你的颜色。</div>
+<canvas id="board" width="600" height="600"></canvas>
+<button class="new-game" id="newGameButton" onclick="newGame()">新游戏</button>
+<script>
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const boardSize = 19; // 棋盘大小
+  let board = Array(boardSize).fill().map(() => Array(boardSize).fill(0)); // 棋盘状态
+  let currentPlayer = 1; // 当前玩家
+  let playerColor = 0; // 玩家颜色
+  let gameEnded = false; // 游戏是否结束
+  let gameStarted = false; // 游戏是否开始
+  const playerId = Math.random().toString(36).substring(2); // 随机生成玩家ID
+
+  function getCanvasPosition(event) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (event.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (event.clientY - rect.top) * (canvas.height / rect.height);
+    return { x, y };
+  }
+
+  canvas.addEventListener('click', (event) => {
+    if (!gameStarted || gameEnded) {
+      alert('游戏尚未开始或已结束。请等待或开始新游戏。');
+      return;
+    }
+    if (playerColor === 0) {
+      alert('请先选择你的颜色。');
+      return;
+    }
+    if (playerColor !== currentPlayer) {
+      alert('不是你的回合！');
+      return;
+    }
+    const { x, y } = getCanvasPosition(event);
+    const boardX = Math.floor(x / (canvas.width / boardSize));
+    const boardY = Math.floor(y / (canvas.height / boardSize));
+    console.log(`Clicked at: (${boardX}, ${boardY})`);
+    makeMove(boardX, boardY);
+  });
+
+  canvas.addEventListener('touchstart', (event) => {
+    event.preventDefault();
+    if (!gameStarted || gameEnded) {
+      alert('游戏尚未开始或已结束。请等待或开始新游戏。');
+      return;
+    }
+    if (playerColor === 0) {
+      alert('请先选择你的颜色。');
+      return;
+    }
+    if (playerColor !== currentPlayer) {
+      alert('不是你的回合！');
+      return;
+    }
+    const touch = event.touches[0];
+    const { x, y } = getCanvasPosition(touch);
+    const boardX = Math.floor(x / (canvas.width / boardSize));
+    const boardY = Math.floor(y / (canvas.height / boardSize));
+    console.log(`Touched at: (${boardX}, ${boardY})`);
+    makeMove(boardX, boardY);
+  });
+
+  function makeMove(x, y) {
+    console.log(`Making move at (${x}, ${y}) for player ${playerId}`);
+    fetch(`/game/move?playerId=${playerId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ x: x, y: y }),
+    }).catch(err => console.error(err.toString()));
+  }
+
+  function drawBoard() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < boardSize; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * (canvas.width / boardSize), 0);
+      ctx.lineTo(i * (canvas.width / boardSize), canvas.height);
+      ctx.moveTo(0, i * (canvas.height / boardSize));
+      ctx.lineTo(canvas.width, i * (canvas.height / boardSize));
+      ctx.strokeStyle = '#000000';
+      ctx.stroke();
+    }
+    for (let x = 0; x < boardSize; x++) {
+      for (let y = 0; y < boardSize; y++) {
+        if (board[x][y] === 1) {
+          ctx.beginPath();
+          ctx.arc((x + 0.5) * (canvas.width / boardSize), (y + 0.5) * (canvas.height / boardSize), 10, 0, 2 * Math.PI);
+          ctx.fillStyle = 'black';
+          ctx.fill();
+        } else if (board[x][y] === 2) {
+          ctx.beginPath();
+          ctx.arc((x + 0.5) * (canvas.width / boardSize), (y + 0.5) * (canvas.height / boardSize), 10, 0, 2 * Math.PI);
+          ctx.fillStyle = 'white';
+          ctx.strokeStyle = 'black'; // 绘制白棋的边框
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function setupSSE() {
+    const eventSource = new EventSource(`/game/updates?playerId=${playerId}`);
+    eventSource.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+      board = data.board;
+      currentPlayer = data.currentPlayer;
+      gameStarted = data.gameStarted;
+      drawBoard();
+      if (data.message) {
+        alert(data.message);
+        gameEnded = true;
+        document.getElementById('status').innerText = '游戏结束！';
+        document.getElementById('newGameButton').style.display = 'block';
+      } else if (gameStarted) {
+        if (currentPlayer === playerColor) {
+          document.getElementById('status').innerText = '轮到你了！';
+        } else {
+          document.getElementById('status').innerText = '等待对手...';
+        }
+      } else {
+        document.getElementById('status').innerText = '等待对手选择颜色...';
+      }
+    };
+    eventSource.onerror = function(err) {
+      console.error('EventSource 失败:', err);
+      setTimeout(setupSSE, 5000); // 尝试在5秒后重新连接
+    };
+  }
+
+  function resetGame() {
+    fetch('/game/reset', {
+      method: 'POST',
+    }).then(() => {
+      gameEnded = false;
+      gameStarted = false;
+      document.getElementById('newGameButton').style.display = 'none';
+      document.getElementById('status').innerText = '游戏已重置！请选择你的颜色。';
+      playerColor = 0; // 重置玩家颜色
+      drawBoard();
+    }).catch(err => console.error(err.toString()));
+  }
+
+  function newGame() {
+    resetGame();
+  }
+
+  function choosePlayer() {
+    const playerSelect = document.getElementById('playerSelect');
+    const choice = parseInt(playerSelect.value);
+    console.log(`Player ${playerId} chose color ${choice}`);
+    fetch('/game/choose', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ playerId: playerId, choice: choice }),
+    }).then(() => {
+      playerColor = choice;
+      document.getElementById('status').innerText = '等待对手选择颜色...';
+    }).catch(err => console.error(err.toString()));
+  }
+
+  function loadGameState() {
+    fetch('/game/state')
+            .then(response => response.json())
+            .then(data => {
+              board = data.board;
+              currentPlayer = data.currentPlayer;
+              gameStarted = data.gameStarted;
+              drawBoard();
+              if (gameStarted) {
+                if (currentPlayer === playerColor) {
+                  document.getElementById('status').innerText = '轮到你了！';
+                } else {
+                  document.getElementById('status').innerText = '等待对手...';
+                }
+              } else {
+                document.getElementById('status').innerText = '请选择你的颜色。';
+              }
+            })
+            .catch(err => console.error(err.toString()));
+  }
+
+  loadGameState();
+  setupSSE();
+  drawBoard();
+</script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect-6 Singleplayer</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+    }
+    canvas {
+      background-color: #d9b38c;
+      border: 1px solid #000000;
+    }
+    .controls {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+<div class="controls">
+  <button onclick="resetGame()">重置游戏</button>
+  <select id="playerSelect">
+    <option value="1">玩家1 - 黑棋</option>
+    <option value="2">玩家2 - 白棋</option>
+  </select>
+  <button onclick="choosePlayer()">选择颜色</button>
+</div>
+<div id="status">请选择你的颜色。</div>
+<canvas id="board" width="600" height="600"></canvas>
+<script>
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const boardSize = 19; // 棋盘大小
+  let board = Array(boardSize).fill().map(() => Array(boardSize).fill(0)); // 棋盘状态
+  let currentPlayer = 1; // 当前玩家
+  let playerColor = 0; // 玩家颜色
+  let gameEnded = false; // 游戏是否结束
+  let gameStarted = false; // 游戏是否开始
+
+  canvas.addEventListener('click', (event) => {
+    if (!gameStarted || gameEnded) {
+      alert('游戏尚未开始或已结束。请等待或开始新游戏。');
+      return;
+    }
+    if (playerColor === 0) {
+      alert('请先选择你的颜色。');
+      return;
+    }
+    if (playerColor !== currentPlayer) {
+      alert('不是你的回合！');
+      return;
+    }
+    const x = Math.floor(event.offsetX / (canvas.width / boardSize));
+    const y = Math.floor(event.offsetY / (canvas.height / boardSize));
+    console.log(`Clicked at: (${x}, ${y})`);
+    makeMove(x, y);
+  });
+
+  function makeMove(x, y) {
+    if (board[x][y] === 0) {
+      board[x][y] = currentPlayer;
+      drawBoard();
+      if (checkWin(x, y)) {
+        gameEnded = true;
+        document.getElementById('status').innerText = `玩家 ${currentPlayer} 获胜！`;
+        return;
+      }
+      currentPlayer = currentPlayer === 1 ? 2 : 1;
+      if (currentPlayer !== playerColor) {
+        // AI move
+        makeAIMove();
+      } else {
+        document.getElementById('status').innerText = '轮到你了！';
+      }
+    }
+  }
+
+  function drawBoard() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < boardSize; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * (canvas.width / boardSize), 0);
+      ctx.lineTo(i * (canvas.width / boardSize), canvas.height);
+      ctx.moveTo(0, i * (canvas.height / boardSize));
+      ctx.lineTo(canvas.width, i * (canvas.height / boardSize));
+      ctx.strokeStyle = '#000000';
+      ctx.stroke();
+    }
+    for (let x = 0; x < boardSize; x++) {
+      for (let y = 0; y < boardSize; y++) {
+        if (board[x][y] === 1) {
+          ctx.beginPath();
+          ctx.arc((x + 0.5) * (canvas.width / boardSize), (y + 0.5) * (canvas.height / boardSize), 10, 0, 2 * Math.PI);
+          ctx.fillStyle = 'black';
+          ctx.fill();
+        } else if (board[x][y] === 2) {
+          ctx.beginPath();
+          ctx.arc((x + 0.5) * (canvas.width / boardSize), (y + 0.5) * (canvas.height / boardSize), 10, 0, 2 * Math.PI);
+          ctx.fillStyle = 'white';
+          ctx.strokeStyle = 'black'; // 绘制白棋的边框
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function resetGame() {
+    board = Array(boardSize).fill().map(() => Array(boardSize).fill(0));
+    currentPlayer = 1;
+    gameEnded = false;
+    gameStarted = false;
+    playerColor = 0; // 重置玩家颜色
+    document.getElementById('status').innerText = '游戏已重置！请选择你的颜色。';
+    drawBoard();
+  }
+
+  function choosePlayer() {
+    const playerSelect = document.getElementById('playerSelect');
+    playerColor = parseInt(playerSelect.value);
+    gameStarted = true;
+    document.getElementById('status').innerText = '游戏开始！轮到你了！';
+    if (playerColor !== currentPlayer) {
+      // AI move
+      makeAIMove();
+    }
+  }
+
+  function makeAIMove() {
+    // 简单的AI，只是随机选择一个空位
+    const emptyCells = [];
+    for (let x = 0; x < boardSize; x++) {
+      for (let y = 0; y < boardSize; y++) {
+        if (board[x][y] === 0) {
+          emptyCells.push({ x, y });
+        }
+      }
+    }
+    if (emptyCells.length > 0) {
+      const move = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+      makeMove(move.x, move.y);
+    }
+  }
+
+  function checkWin(x, y) {
+    const directions = [
+      { dx: 1, dy: 0 }, // 横向
+      { dx: 0, dy: 1 }, // 纵向
+      { dx: 1, dy: 1 }, // 斜向 \
+      { dx: 1, dy: -1 } // 斜向 /
+    ];
+    const player = board[x][y];
+    for (const { dx, dy } of directions) {
+      let count = 1;
+      for (let step = 1; step < 6; step++) {
+        const nx = x + step * dx;
+        const ny = y + step * dy;
+        if (nx >= 0 && nx < boardSize && ny >= 0 && ny < boardSize && board[nx][ny] === player) {
+          count++;
+        } else {
+          break;
+        }
+      }
+      for (let step = 1; step < 6; step++) {
+        const nx = x - step * dx;
+        const ny = y - step * dy;
+        if (nx >= 0 && nx < boardSize && ny >= 0 && ny < boardSize && board[nx][ny] === player) {
+          count++;
+        } else {
+          break;
+        }
+      }
+      if (count >= 6) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  drawBoard();
+</script>
+</body>
+</html>
