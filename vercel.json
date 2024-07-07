@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "Connect-6-demo-0.0.1-SNAPSHOT.jar",
+      "use": "@vercel/static-build"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "Connect-6-demo-0.0.1-SNAPSHOT.jar"
+    }
+  ]
+}
