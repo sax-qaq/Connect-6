@@ -2,18 +2,9 @@
   "version": 2,
   "builds": [
     {
-      "src": "pom.xml",
-      "use": "@vercel/static-build",
-      "config": {
-        "buildCommand": "mvn clean package",
-        "distDir": "target"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "target/Connect-6-demo-0.0.1-SNAPSHOT.jar"
+      "src": "Dockerfile",
+      "use": "@vercel/docker"
     }
   ]
 }
+
